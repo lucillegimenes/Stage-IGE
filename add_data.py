@@ -26,35 +26,68 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-def add_data_thickness(gdir,input_file):
+def add_data_thickness(gdir,input_file,name_var,long_name_var):
 
-	dsb = salem.GeoTiff(input_file)
-	thick = utils.clip_min(dsb.get_vardata(), 0)
-	in_volume = thick.sum() * dsb.grid.dx ** 2
-	thick = gdir.grid.map_gridded_data(thick, dsb.grid, interp='linear')
+    dsb = salem.GeoTiff(input_file)
+    thick = utils.clip_min(dsb.get_vardata(), 0)
+
+    in_volume = thick.sum() * dsb.grid.dx ** 2
+    thick = gdir.grid.map_gridded_data(thick, dsb.grid, interp='linear')
+
 
 	# Correct for volume
-	thick = utils.clip_min(thick.filled(0), 0)
-	out_volume = thick.sum() * gdir.grid.dx ** 2
-	if out_volume > 0:
-		thick *= in_volume / out_volume
-
-	# We mask zero ice as nodata
-	thick = np.where(thick == 0, np.NaN, thick)
+    thick = utils.clip_min(thick.filled(0), 0)
+    out_volume = thick.sum() * gdir.grid.dx ** 2
+    if out_volume > 0:
+        thick *= in_volume / out_volume
+    
+    # We mask zero ice as nodata
+    thick = np.where(thick == 0, np.NaN, thick)
 
 	# Write
-	with utils.ncDataset(gdir.get_filepath('gridded_data'), 'a') as nc:
+    with utils.ncDataset(gdir.get_filepath('gridded_data'), 'a') as nc:
 
-		vn = 'millan_thickness'
-		if vn in nc.variables:
-			v = nc.variables[vn]
-		else:
-			v = nc.createVariable(vn, 'f4', ('y', 'x', ), zlib=True)
-		v.units = 'm'
-		ln = 'Ice thickness from Millan'
-		v.long_name = ln
+        vn = name_var
+        if vn in nc.variables:
+            v = nc.variables[vn]
+        else:
+            v = nc.createVariable(vn, 'f4', ('y', 'x', ), zlib=True)
+        v.units = 'm'
+        ln = long_name_var
+        v.long_name = ln
 		#v.base_url = base_url
-		v[:] = thick
+        v[:] = thick
+        
+def add_data_elev(gdir,input_file,name_var,long_name_var):
+    #same as add_data_thickness but allow the data to be negative
+    dsb = salem.GeoTiff(input_file)
+    elev = dsb.get_vardata()
+    in_volume = elev.sum() * dsb.grid.dx ** 2
+    elev = gdir.grid.map_gridded_data(elev, dsb.grid, interp='linear')
+
+	# Correct for volume
+    #thick = utils.clip_min(thick.filled(0), 0)
+    out_volume = elev.sum() * gdir.grid.dx ** 2
+    if out_volume > 0:
+        elev *= in_volume / out_volume
+    
+    # We mask zero ice as nodata
+    #thick = np.where(thick == 0, np.NaN, thick)
+
+	# Write
+    with utils.ncDataset(gdir.get_filepath('gridded_data'), 'a') as nc:
+
+        vn = name_var
+        if vn in nc.variables:
+            v = nc.variables[vn]
+        else:
+            v = nc.createVariable(vn, 'f4', ('y', 'x', ), zlib=True)
+        v.units = 'm'
+        ln = long_name_var
+        v.long_name = ln
+		#v.base_url = base_url
+        v[:] = elev
+
 
 def mapped_extracted_thickness(gdir):
     grids_file = gdir.get_filepath('gridded_data')
